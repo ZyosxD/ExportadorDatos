@@ -166,9 +166,23 @@ def save_to_pdf(data, filename="utah_county_data.pdf"):
     doc.build(elements)
     print(f"Data saved to {filename}")
 
+LATINO_LAST_NAMES = [
+    "Garcia",
+    "Rodriguez",
+    "Martinez",
+    "Hernandez",
+    "Lopez"
+]
+
 if __name__ == "__main__":
-    data = get_property_data("Garcia")
-    if data:
-        save_to_csv(data)
-        save_to_excel(data)
-        save_to_pdf(data)
+    all_data = []
+    for name in LATINO_LAST_NAMES:
+        print(f"Scraping data for last name: {name}")
+        data = get_property_data(name, max_records=30)
+        if data:
+            all_data.extend(data)
+
+    if all_data:
+        save_to_csv(all_data)
+        save_to_excel(all_data)
+        save_to_pdf(all_data)
