@@ -2,7 +2,7 @@ import requests
 from bs4 import BeautifulSoup
 import re
 
-def get_property_data(last_name, max_records=150):
+def get_property_data(last_name, max_records=100):
     base_url = "https://www.utahcounty.gov/LandRecords/NameSearch.asp"
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36"
@@ -167,22 +167,42 @@ def save_to_pdf(data, filename="utah_county_data.pdf"):
     print(f"Data saved to {filename}")
 
 LATINO_LAST_NAMES = [
-    "Garcia",
-    "Rodriguez",
-    "Martinez",
-    "Hernandez",
-    "Lopez"
+    "Garcia", "Rodriguez", "Martinez", "Hernandez", "Lopez",
+    "Gonzalez", "Perez", "Sanchez", "Ramirez", "Torres",
+    "Flores", "Rivera", "Gomez", "Diaz", "Reyes",
+    "Cruz", "Morales", "Ortiz", "Gutierrez", "Chavez"
 ]
 
 if __name__ == "__main__":
     all_data = []
-    for name in LATINO_LAST_NAMES:
-        print(f"Scraping data for last name: {name}")
-        data = get_property_data(name, max_records=30)
-        if data:
-            all_data.extend(data)
+    try:
+        for name in LATINO_LAST_NAMES:
+            print(f"\nScraping data for last name: {name}")
+            data = get_property_data(name, max_records=10)
+            if data:
+                print(f"Found {len(data)} records for {name}.")
+                all_data.extend(data)
+            else:
+                print(f"No records found for {name}.")
 
-    if all_data:
-        save_to_csv(all_data)
-        save_to_excel(all_data)
-        save_to_pdf(all_data)
+        if all_data:
+            print(f"\nTotal records scraped: {len(all_data)}")
+            print("Saving data to files...")
+            save_to_csv(all_data)
+            save_to_excel(all_data)
+            save_to_pdf(all_data)
+            print("\nAll files saved successfully!")
+        else:
+            print("\nNo data was scraped. No files will be generated.")
+
+    except KeyboardInterrupt:
+        print("\n\nScraping process stopped by user.")
+        if all_data:
+            print(f"\n{len(all_data)} records were scraped before stopping.")
+            save_choice = input("Do you want to save the scraped data? (y/n): ").lower()
+            if save_choice == 'y':
+                print("Saving data to files...")
+                save_to_csv(all_data)
+                save_to_excel(all_data)
+                save_to_pdf(all_data)
+                print("\nFiles saved successfully!")
