@@ -60,18 +60,19 @@ def get_property_data(last_name, max_records=100):
             address = address_parts[0]
             city = address_parts[1] if len(address_parts) > 1 else ""
 
-            # Get zip code from property page
-            zip_code = ""
+            # Get property details (zip and signing date)
+            details = {"zip_code": "", "signing_date": ""}
             property_link = cols[1].find('a')
             if property_link and 'href' in property_link.attrs:
                 property_url = f"https://www.utahcounty.gov/LandRecords/{property_link['href']}"
-                zip_code = get_zip_code(property_url, headers)
+                details = get_property_details(property_url, owner_name, headers)
 
             records.append({
                 "Name": owner_name,
                 "Address": address,
                 "City": city,
-                "Zip Code": zip_code,
+                "Zip Code": details["zip_code"],
+                "Signing Date": details["signing_date"],
                 "Ownership Status": ownership_status
             })
 
@@ -87,21 +88,52 @@ def get_property_data(last_name, max_records=100):
 
     return records
 
-def get_zip_code(property_url, headers):
+def get_property_details(property_url, owner_name, headers):
+    details = {"zip_code": "", "signing_date": ""}
     try:
         response = requests.get(property_url, headers=headers)
-        if response.status_code == 200:
-            soup = BeautifulSoup(response.content, 'html.parser')
-            mailing_address_strong = soup.find('strong', string=re.compile(r'Mailing Address:'))
-            if mailing_address_strong:
-                mailing_address_text = mailing_address_strong.parent.text
-                # Zip code is the last part of the address, usually 5 digits
-                zip_match = re.search(r'\b\d{5}(?:-\d{4})?\b$', mailing_address_text)
-                if zip_match:
-                    return zip_match.group(0)
+        if response.status_code != 200:
+            return details
+
+        soup = BeautifulSoup(response.content, 'html.parser')
+
+        # Get Zip Code
+        mailing_address_strong = soup.find('strong', string=re.compile(r'Mailing Address:'))
+        if mailing_address_strong:
+            mailing_address_text = mailing_address_strong.parent.text
+            zip_match = re.search(r'\b\d{5}(?:-\d{4})?\b$', mailing_address_text)
+            if zip_match:
+                details["zip_code"] = zip_match.group(0)
+
+        # Get Signing Date
+        doc_table = None
+        all_panels = soup.find_all('div', class_='TabbedPanelsContent')
+        for panel in all_panels:
+            # The "Entry #" header is a reliable marker for the documents table
+            if panel.find(string=re.compile(r'Entry #')):
+                doc_table = panel.find('table')
+                break
+
+        if doc_table:
+            rows = doc_table.find_all('tr')[1:] # Skip header
+            for row in reversed(rows): # Look from most recent
+                cols = row.find_all('td')
+                if len(cols) >= 6:
+                    doc_date = cols[1].text.strip()
+                    doc_type = cols[3].text.strip()
+                    grantee = cols[5].text.strip()
+
+                    # Check for ownership transfer document types
+                    if doc_type in ['WD', 'SP WD', 'D TR', 'TR DEED']:
+                        # Check if the owner name is in the grantee field
+                        # This is a simple check, might need to be more robust
+                        if owner_name.split(',')[0] in grantee:
+                            details["signing_date"] = doc_date
+                            break # Found the most recent one
     except requests.exceptions.RequestException as e:
-        print(f"Error fetching zip code from {property_url}: {e}")
-    return ""
+        print(f"Error fetching details from {property_url}: {e}")
+
+    return details
 
 import csv
 
